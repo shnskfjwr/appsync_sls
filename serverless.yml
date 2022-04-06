@@ -1,0 +1,112 @@
+service: appsync-sls
+frameworkVersion: '>=3.8.0 <4.0.0'
+
+plugins:
+  - serverless-appsync-plugin
+
+custom:
+  defaultStage: dev
+
+  appSync:
+    name: appsync-sls-test
+    # 認証設定 今回はAPIキーだが本番はCognito想定
+    authenticationType: API_KEY
+    apiKeys:
+      - name: appsync-sls-test
+        description: appsync-sls-test
+        expiresAfter: 365d
+    # スキーマファイルの場所
+    schema: schema.graphql
+    # APIの接続先の指定
+    dataSources:
+      - type: AMAZON_DYNAMODB
+        name: ${opt:stage, self:provider.stage}_user
+        description: ユーザーテーブル
+        config:
+          tableName: { Ref: UserTable }
+          serviceRoleArn: { Fn::GetAtt: [AppSyncDynamoRole, Arn] }
+          region: ap-northeast-1
+    # リゾルバの指定 基本はスキーマファイルの記述に従う
+    mappingTemplatesLocation: mapping-templates
+    mappingTemplates:
+      - dataSource: ${opt:stage, self:provider.stage}_user
+        type: Query
+        field: getUser
+        request: Query.getUser.request.vtl
+        response: Query.getUser.response.vtl
+      - dataSource: ${opt:stage, self:provider.stage}_user
+        type: Mutation
+        field: addUser
+        request: Mutation.addUser.request.vtl
+        response: Mutation.addUser.response.vtl
+
+
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: ap-northeast-1
+  profile: ${opt:profile, ''}
+  stage: ${opt:stage, self:custom.defaultStage}
+  environment:
+    TZ: Asia/Tokyo
+  logRetentionInDays: 14
+  versionFunctions: false
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!.vscode/'
+    - '!.venv/'
+    - '!.flake8'
+    - '!.gitignore'
+    - '!Pipfile'
+    - '!Pipfile.lock'
+    - '!README.md'
+    - '!package.json'
+    - '!package-lock.json'
+    - '!requirements.txt'
+
+
+resources:
+  Resources:
+    UserTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: 'users'
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+
+    AppSyncDynamoRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: appsync-dynamodb-role
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - appsync.amazonaws.com
+              Action:
+                - 'sts:AssumeRole'
+        Policies:
+          - PolicyName: appsync-dynamodb-policy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - 'dynamodb:DeleteItem'
+                    - 'dynamodb:GetItem'
+                    - 'dynamodb:PutItem'
+                    - 'dynamodb:Query'
+                    - 'dynamodb:Scan'
+                    - 'dynamodb:UpdateItem'
+                  Resource:
+                    - '*'

@@ -1,0 +1,11 @@
+## $ctx.args で引数を指定可能
+## idを新規に採番＋引数に指定されてる項目をそのままDynamoDBにPutItemする という意味になる
+
+{
+    "version" : "2017-02-28",
+    "operation" : "PutItem",
+    "key" : {
+        "id": $util.dynamodb.toDynamoDBJson($util.autoId()),
+    },
+    "attributeValues" : $util.dynamodb.toMapValuesJson($ctx.args)
+}

@@ -1,0 +1,31 @@
+# テーブル項目の定義
+type User {
+    id: ID!
+    status: String
+}
+
+# 使える操作の数？
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+# Queryの操作 RESTでいうところのR ()の中は引数
+type Query {
+  getUser(id: ID!): User
+}
+
+# Mutationの操作 RESTでいうところのCUD
+type Mutation {
+  addUser(status: String): User
+}
+
+# Subscriptionの操作 購読、RESTには該当する機能がない
+# addUserが叩かれたら発火する
+# Subscriptionは `@aws_subscribe` がいい感じに動いてくれるので
+# serverless.ymlのmappingTemplatesを不要、らしい
+type Subscription {
+  addedUser(status: String): User
+  @aws_subscribe(mutations: ["addUser"])
+}
